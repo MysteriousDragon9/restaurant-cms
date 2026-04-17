@@ -87,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-left: 4px solid #007bff;
         }
     </style>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -172,11 +173,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                 </div>
                                 <div class="mb-3">
-                                    <label for="comment_text" class="form-label">Your Comment</label>
+                                <label for="comment_text" class="form-label">Your Comment</label>
                                     <textarea class="form-control" id="comment_text" name="comment_text" rows="3" required></textarea>
                                 </div>
+
+                                <!-- reCAPTCHA Widget -->
+                                <div class="mb-3">
+                                <div class="g-recaptcha" data-sitekey="6LdijLssAAAAAPXV5TJ-UAdnwCR4pSTAr9nC9aLF"></div>
+                                </div>
+
                                 <button type="submit" class="btn btn-primary">Submit Comment</button>
-                            </form>
+                                    </form>
 
                             <?php if (empty($comments)): ?>
                                 <p class="text-muted">No comments yet. Be the first to comment!</p>
