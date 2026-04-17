@@ -20,4 +20,8 @@ A full-featured Content Management System for managing restaurant listings, buil
 1. Clone the repository.
 2. Configure `admin/db.php` with your database credentials.
 3. Import the SQL schema (if available).
+<<<<<<< HEAD
 4. Run via XAMPP/Apache.
+=======
+4. Run via XAMPP/Apache.
+>>>>>>> 8d9c54802def7c2f2c7dea56c62f9d3b8284a935
