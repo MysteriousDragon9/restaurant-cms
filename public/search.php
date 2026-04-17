@@ -2,47 +2,75 @@
 require_once '../admin/db.php';
 require_once 'helpers.php';
 
+// Pagination settings
+$perPage = 6;
+$page = (int)($_GET['page'] ?? 1);
+$offset = (int)(($page - 1) * $perPage);
+
 // Get search parameters
 $search = sanitize($_GET['search'] ?? '');
 $category_id = (int)($_GET['category_id'] ?? 0);
 
-// Build query
-$where = [];
-$params = [];
+// Build query conditions
+$searchParams = [];
+$whereClauses = [];
 
 if (!empty($search)) {
-    $where[] = "(r.name LIKE ? OR r.description LIKE ?)";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
+    $whereClauses[] = "(r.name LIKE ? OR r.description LIKE ?)";
+    $searchParams[] = "%$search%";
+    $searchParams[] = "%$search%";
 }
 
 if ($category_id > 0) {
-    $where[] = "r.category_id = ?";
-    $params[] = $category_id;
+    $whereClauses[] = "r.category_id = ?";
+    $searchParams[] = $category_id;
 }
 
-$whereClause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+$whereClause = !empty($whereClauses) ? "WHERE " . implode(" AND ", $whereClauses) : "";
 
-// Get restaurants matching search criteria
 try {
+    // 1. Get Total Count
+    $countSql = "SELECT COUNT(*) as total FROM restaurants r $whereClause";
+    $stmt = $pdo->prepare($countSql);
+    if (!empty($searchParams)) {
+        $stmt->execute($searchParams);
+    } else {
+        $stmt->execute();
+    }
+    $total = $stmt->fetch()['total'];
+    $totalPages = ceil($total / $perPage);
+
+    // 2. Get Restaurants with Pagination - FIX: Use explicit binding
     $sql = "
         SELECT r.*, c.name as category_name
         FROM restaurants r
         LEFT JOIN categories c ON r.category_id = c.id
         $whereClause
         ORDER BY r.name
+        LIMIT ? OFFSET ?
     ";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+
+    // Bind search parameters (if any)
+    $paramIndex = 1;
+    foreach ($searchParams as $param) {
+        $stmt->bindValue($paramIndex++, $param);
+    }
+
+    // CRITICAL: Bind LIMIT and OFFSET as INT explicitly
+    $stmt->bindValue($paramIndex++, $perPage, PDO::PARAM_INT);
+    $stmt->bindValue($paramIndex++, $offset, PDO::PARAM_INT);
+
+    $stmt->execute();
     $restaurants = $stmt->fetchAll();
 
-    // Get categories for filter dropdown
+    // 3. Get Categories
     $stmt = $pdo->query("SELECT * FROM categories ORDER BY name");
     $categories = $stmt->fetchAll();
 
 } catch(PDOException $e) {
-    die("Database error: " . $e->getMessage());
+    die("Database error: " . $e->getMessage() . "<br>SQL: " . $sql);
 }
 ?>
 
@@ -215,6 +243,49 @@ try {
                 <?php endif; ?>
             </div>
         </div>
+    </section>
+
+    <?php if ($totalPages > 1): ?>
+        <nav aria-label="Search results pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <?php if ($page > 1): ?>
+                    <li class="page-item">
+                        <a class="page-link" href="?search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_id; ?>&page=<?php echo $page - 1; ?>">
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </a>
+                    </li>
+                <?php endif; ?>
+
+                <?php
+                $startPage = max(1, $page - 2);
+                $endPage = min($totalPages, $page + 2);
+
+                for ($i = $startPage; $i <= $endPage; $i++):
+                ?>
+                    <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                        <a class="page-link" href="?search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_id; ?>&page=<?php echo $i; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    </li>
+                <?php endfor; ?>
+
+                <?php if ($page < $totalPages): ?>
+                    <li class="page-item">
+                        <a class="page-link" href="?search=<?php echo urlencode($search); ?>&category_id=<?php echo $category_id; ?>&page=<?php echo $page + 1; ?>">
+                            Next <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                <?php endif; ?>
+            </ul>
+        </nav>
+
+        <div class="text-center mt-2">
+            <small class="text-muted">
+                Showing <?php echo ($page - 1) * $perPage + 1; ?>-<?php echo min($page * $perPage, $total); ?>
+                of <?php echo $total; ?> results
+            </small>
+        </div>
+    <?php endif; ?>
     </section>
 
     <footer class="footer">
