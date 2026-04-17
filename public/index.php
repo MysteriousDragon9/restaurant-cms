@@ -2,7 +2,7 @@
 require_once '../admin/db.php';
 require_once 'helpers.php';
 
-//all restaurants with category names
+// Get all restaurants with category names
 try {
     $stmt = $pdo->query("
         SELECT r.*, c.name as category_name
@@ -12,15 +12,13 @@ try {
     ");
     $restaurants = $stmt->fetchAll();
 
-    //categories for filter
+    // Get categories for filter
     $stmt = $pdo->query("SELECT * FROM categories ORDER BY name");
     $categories = $stmt->fetchAll();
-
 } catch(PDOException $e) {
     die("Database error: " . $e->getMessage());
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -38,22 +36,46 @@ try {
             padding: 100px 0;
             text-align: center;
         }
+
         .restaurant-card {
             transition: transform 0.3s;
             height: 100%;
         }
+
         .restaurant-card:hover {
             transform: translateY(-5px);
         }
+
         .restaurant-image {
             height: 200px;
             object-fit: cover;
         }
+
         .footer {
             background-color: #343a40;
             color: white;
             padding: 30px 0;
             margin-top: 50px;
+        }
+
+        #search-results {
+            margin-top: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .search-result-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+        }
+
+        .search-result-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
@@ -95,49 +117,55 @@ try {
     <section class="py-5">
         <div class="container">
             <div class="row mb-4">
-                <div class="col-md-8">
-                    <h2>Featured Restaurants</h2>
-                </div>
-                <div class="col-md-4">
-                    <div class="d-flex">
-                        <input type="text" class="form-control me-2" placeholder="Search restaurants..." id="search-input">
-                        <button class="btn btn-outline-primary" id="search-btn">
+                <div class="col-md-8 mx-auto">
+                    <div class="input-group input-group-lg">
+                        <input type="text" class="form-control" id="ajax-search-input" placeholder="Search restaurants by name, cuisine, or description...">
+                        <span class="input-group-text">
                             <i class="fas fa-search"></i>
-                        </button>
+                        </span>
                     </div>
+                    <div id="ajax-search-results" class="mt-3"></div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h2>Featured Restaurants</h2>
                 </div>
             </div>
 
             <div class="row" id="restaurant-list">
                 <?php if (empty($restaurants)): ?>
-                    <div class="col-12">
-                        <div class="alert alert-info">No restaurants found.</div>
-                    </div>
+                <div class="col-12">
+                    <div class="alert alert-info">No restaurants found.</div>
+                </div>
                 <?php else: ?>
-                    <?php foreach ($restaurants as $restaurant): ?>
-                        <div class="col-md-4 mb-4 restaurant-item" data-name="<?php echo strtolower($restaurant['name']); ?>" data-category="<?php echo strtolower($restaurant['category_name'] ?? ''); ?>">
-                            <div class="card restaurant-card">
-                                <?php if ($restaurant['image_path']): ?>
-                                    <img src="../admin/uploads/images/<?php echo htmlspecialchars($restaurant['image_path']); ?>" class="card-img-top restaurant-image" alt="<?php echo htmlspecialchars($restaurant['name']); ?>">
-                                <?php else: ?>
-                                    <img src="https://picsum.photos/seed/<?php echo urlencode($restaurant['name']); ?>/400/200.jpg" class="card-img-top restaurant-image" alt="<?php echo htmlspecialchars($restaurant['name']); ?>">
-                                <?php endif; ?>
-                                <div class="card-body">
-                                    <h5 class="card-title"><?php echo htmlspecialchars($restaurant['name']); ?></h5>
-                                    <div class="mb-2">
-                                        <span class="badge bg-info"><?php echo htmlspecialchars($restaurant['category_name'] ?? 'Uncategorized'); ?></span>
-                                    </div>
-                                    <p class="card-text"><?php echo substr(htmlspecialchars($restaurant['description']), 0, 100) . '...'; ?></p>
-                                    <div class="d-flex justify-content-between">
-                                        <a href="restaurant.php?id=<?php echo $restaurant['id']; ?>" class="btn btn-primary">View Details</a>
-                                        <small class="text-muted">
-                                            <i class="fas fa-phone me-1"></i><?php echo htmlspecialchars($restaurant['phone']); ?>
-                                        </small>
-                                    </div>
-                                </div>
+                <?php foreach ($restaurants as $restaurant): ?>
+                <div class="col-md-4 mb-4 restaurant-item"
+                     data-name="<?php echo strtolower($restaurant['name']); ?>"
+                     data-category="<?php echo strtolower($restaurant['category_name'] ?? 'uncategorized'); ?>">
+                    <div class="card restaurant-card">
+                        <?php if ($restaurant['image_path']): ?>
+                        <img src="../admin/uploads/images/<?php echo htmlspecialchars($restaurant['image_path']); ?>" class="card-img-top restaurant-image" alt="<?php echo htmlspecialchars($restaurant['name']); ?>">
+                        <?php else: ?>
+                        <img src="https://picsum.photos/seed/<?php echo urlencode($restaurant['name']); ?>/400/200.jpg" class="card-img-top restaurant-image" alt="<?php echo htmlspecialchars($restaurant['name']); ?>">
+                        <?php endif; ?>
+                        <div class="card-body">
+                            <h5 class="card-title"><?php echo htmlspecialchars($restaurant['name']); ?></h5>
+                            <div class="mb-2">
+                                <span class="badge bg-info"><?php echo htmlspecialchars($restaurant['category_name'] ?? 'Uncategorized'); ?></span>
+                            </div>
+                            <p class="card-text"><?php echo substr(htmlspecialchars($restaurant['description']), 0, 100) . '...'; ?></p>
+                            <div class="d-flex justify-content-between">
+                                <a href="restaurant.php?id=<?php echo $restaurant['id']; ?>" class="btn btn-primary">View Details</a>
+                                <small class="text-muted">
+                                    <i class="fas fa-phone me-1"></i><?php echo htmlspecialchars($restaurant['phone']); ?>
+                                </small>
                             </div>
                         </div>
-                    <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -168,27 +196,57 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Simple search functionality
-        document.getElementById('search-btn').addEventListener('click', function() {
-            const searchTerm = document.getElementById('search-input').value.toLowerCase();
-            const restaurantItems = document.querySelectorAll('.restaurant-item');
+        // AJAX Search functionality
+        const searchInput = document.getElementById('ajax-search-input');
+        const searchResults = document.getElementById('ajax-search-results');
+        let searchTimeout;
 
-            restaurantItems.forEach(item => {
-                const name = item.getAttribute('data-name');
-                const category = item.getAttribute('data-category');
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
 
-                if (name.includes(searchTerm) || category.includes(searchTerm)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+            // Clear previous timeout
+            clearTimeout(searchTimeout);
+
+            // Don't search for very short queries
+            if (query.length < 2) {
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            // Debounce: wait 300ms after user stops typing
+            searchTimeout = setTimeout(function() {
+                // Show loading
+                searchResults.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+
+                // Fetch search results via AJAX
+                fetch('ajax-search.php?q=' + encodeURIComponent(query))
+                    .then(response => response.text())
+                    .then(data => {
+                        searchResults.innerHTML = data;
+                    })
+                    .catch(error => {
+                        console.error('Search error:', error);
+                        searchResults.innerHTML = '<div class="alert alert-danger">Search error. Please try again.</div>';
+                    });
+            }, 300);
         });
 
-        // Search on Enter key
-        document.getElementById('search-input').addEventListener('keyup', function(event) {
+        // Clear results when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
+                searchResults.innerHTML = '';
+            }
+        });
+
+        // Enter key to search
+        searchInput.addEventListener('keypress', function(event) {
             if (event.key === 'Enter') {
-                document.getElementById('search-btn').click();
+                event.preventDefault();
+                // Trigger the search
+                const query = this.value.trim();
+                if (query.length >= 2) {
+                    searchInput.dispatchEvent(new Event('input'));
+                }
             }
         });
     </script>
